@@ -18,7 +18,7 @@ def first_layer(inputs, training, scope):
     return out
 
 def residual_block(inputs, output_size, survival_rate,
-                   training, outer_scope, scope, strides=[1,1], padding='SAME'):
+                   training, outer_scope, scope, stride=1, padding='SAME'):
     #optional downsampling when strides > 1
     # optional stride param?
     #padding in case of different strides?
@@ -35,7 +35,7 @@ def residual_block(inputs, output_size, survival_rate,
                     conv = tf.contrib.layers.conv2d(inputs,
                                                     num_outputs=output_size,
                                                     kernel_size=[3, 3],
-                                                    strides=strides,
+                                                    stride=stride,
                                                     padding=padding,
                                                     activation_fn=tf.nn.relu,
                                                     normalizer_fn=tf.contrib.layers.batch_norm,
@@ -44,19 +44,20 @@ def residual_block(inputs, output_size, survival_rate,
                     out = tf.contrib.layers.conv2d(conv,
                                                    num_outputs=output_size,
                                                    kernel_size=[3, 3],
-                                                   strides=[1,1],
+                                                   stride=1,
                                                    padding='SAME',
                                                    activation_fn=None,
                                                    normalizer_fn=tf.contrib.layers.batch_norm,
                                                    normalizer_params={'scale': True,
                                                                       'is_training': True})
+                    return tf.nn.relu(out + identity)
                 else:
-                    out = tf.zeros(shape=inputs.shape)
+                    return tf.nn.relu(identity)
             else:
                 conv = tf.contrib.layers.conv2d(inputs,
                                                 num_outputs=output_size,
                                                 kernel_size=[3, 3],
-                                                strides=strides,
+                                                stride=stride,
                                                 padding=padding,
                                                 activation_fn=tf.nn.relu,
                                                 normalizer_fn=tf.contrib.layers.batch_norm,
@@ -65,7 +66,7 @@ def residual_block(inputs, output_size, survival_rate,
                 out = tf.contrib.layers.conv2d(conv,
                                                num_outputs=output_size,
                                                kernel_size=[3, 3],
-                                               strides=[1,1],
+                                               stride=1,
                                                padding='SAME',
                                                activation_fn=None,
                                                normalizer_fn=tf.contrib.layers.batch_norm,
@@ -73,8 +74,7 @@ def residual_block(inputs, output_size, survival_rate,
                                                                   'is_training': False})
                 out *= survival_rate
 
-
-    return tf.contrib.layers.relu(out + identity)
+                return tf.nn.relu(out + identity)
 
 # def transition_block(inputs, output_size, survival_rate,
 #                      training, outer_scope, scope, strides=[1,1], padding='SAME'):
@@ -138,7 +138,7 @@ def residual_block(inputs, output_size, survival_rate,
 #                                                                   'is_training': False})
 #                 out *= survival_rate
 
-#     return tf.contrib.layers.relu(out + identity)
+#     return tf.nn.relu(out + identity)
 
 
 # def output_layer(input, scope, output_size=10):
