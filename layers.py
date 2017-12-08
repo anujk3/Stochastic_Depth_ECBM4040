@@ -1,12 +1,18 @@
 import tensorflow as tf
 
-def first_layer():
-    pass
+def first_layer(input, scope):
+    with tf.name_scope(scope):
+        conv = tf.contrib.layers.conv2d(input, kernel_size=(7, 7),
+                                        strides=2, padding='VALID')
+        out = tf.contrib.layers.max_pool2d(conv, kernel_size=(3, 3),
+                                           strides=2, padding='VALID')
+    return out
 
 def residual_block(input, output_size, kernel_size,
                    strides, padding, survived, mode, transition,
                    outer_scope, scope):
-    with tf.name_scope(out_scope):
+    # output_dims =
+    with tf.name_scope(outer_scope):
         with tf.name_scope(scope):
             if survived:
                 conv = tf.contrib.layers.conv2d(input, output_size, kernel_size,
@@ -29,13 +35,10 @@ def residual_block(input, output_size, kernel_size,
 
     return tf.contrib.layers.relu(out + identity)
 
-def output_layer():
-    pass
-
-
-def blocks(input, output_shape, num_layers, outer_scope):
-    for i in range(num_layers - 1):
-        pass
-
-
-
+def output_layer(input, output_size=10, scope):
+    with tf.name_scope(scope):
+        flatten = tf.contrib.layers.flatten(input)
+        fc = tf.contrib.layers.fully_connected(flatten,
+                                               output_size,
+                                               activation_fn=tf.nn.softmax)
+    return fc
