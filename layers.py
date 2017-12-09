@@ -111,6 +111,5 @@ def output_layer(inputs, scope, output_size=10):
                                                padding='VALID')
         flatten = tf.contrib.layers.flatten(pooling)
         fc = tf.contrib.layers.fully_connected(flatten,
-                                               output_size,
-                                               activation_fn=tf.nn.softmax)
+                                               output_size)
     return fc
