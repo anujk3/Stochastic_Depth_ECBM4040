@@ -48,10 +48,11 @@ def residual_block(inputs, output_size, survival_rate,
                                        normalizer_params={'scale': True,
                                                           'is_training': True})
         if training:
-            if survival_rate == 1:
-                return tf.nn.relu(out + identity)
-            else:
-                return tf.nn.relu(identity)
+            bernoulli = np.random.uniform()
+            survives = tf.less(bernoulli, survival_rate)
+            return tf.cond(survives,
+                           lambda: tf.nn.relu(out + identity),
+                           lambda: tf.nn.relu(identity))
         else:
             out *= survival_rate
             return tf.nn.relu(out + identity)
@@ -90,11 +91,11 @@ def transition_block(inputs, output_size, survival_rate,
                                        normalizer_params={'scale': True,
                                                           'is_training': True})
         if training:
-            if survival_rate == 1:
-                return tf.nn.relu(out + identity)
-            else:
-                return tf.nn.relu(identity)
-
+            bernoulli = np.random.uniform()
+            survives = tf.less(bernoulli, survival_rate)
+            return tf.cond(survives,
+                           lambda: tf.nn.relu(out + identity),
+                           lambda: tf.nn.relu(identity))
         else:
             out *= survival_rate
             return tf.nn.relu(out + identity)
