@@ -7,7 +7,7 @@ import numpy as np
 # implement variable probs in notebook itself.
 # W=(W−F+2P)/S+1
 def first_layer(inputs, training, scope):
-    with tf.name_scope(scope):
+    with tf.variable_scope(scope):
         out = tf.contrib.layers.conv2d(inputs,
                                        num_outputs=16,
                                        kernel_size=(3, 3),
@@ -20,42 +20,19 @@ def first_layer(inputs, training, scope):
     return out
 
 def residual_block(inputs, output_size, survival_rate,
-                   training, outer_scope, scope, stride=1, padding='SAME'):
+                   training, scope, stride=1, padding='SAME'):
     #optional downsampling when strides > 1
     # optional stride param?
     #padding in case of different strides?
     bernoulli = np.random.uniform()
     survives = bernoulli < survival_rate
 
-    with tf.name_scope(outer_scope):
-        with tf.name_scope(scope):
+    with tf.variable_scope(scope):
 
-            identity = inputs
+        identity = inputs
 
-            if training:
-                if survives:
-                    conv = tf.contrib.layers.conv2d(inputs,
-                                                    num_outputs=output_size,
-                                                    kernel_size=[3, 3],
-                                                    stride=stride,
-                                                    padding=padding,
-                                                    activation_fn=tf.nn.relu,
-                                                    normalizer_fn=tf.contrib.layers.batch_norm,
-                                                    normalizer_params={'scale': True,
-                                                                       'is_training': True})
-                    out = tf.contrib.layers.conv2d(conv,
-                                                   num_outputs=output_size,
-                                                   kernel_size=[3, 3],
-                                                   stride=1,
-                                                   padding='SAME',
-                                                   activation_fn=None,
-                                                   normalizer_fn=tf.contrib.layers.batch_norm,
-                                                   normalizer_params={'scale': True,
-                                                                      'is_training': True})
-                    return tf.nn.relu(out + identity)
-                else:
-                    return tf.nn.relu(identity)
-            else:
+        if training:
+            if survives:
                 conv = tf.contrib.layers.conv2d(inputs,
                                                 num_outputs=output_size,
                                                 kernel_size=[3, 3],
@@ -64,7 +41,7 @@ def residual_block(inputs, output_size, survival_rate,
                                                 activation_fn=tf.nn.relu,
                                                 normalizer_fn=tf.contrib.layers.batch_norm,
                                                 normalizer_params={'scale': True,
-                                                                   'is_training': False})
+                                                                   'is_training': True})
                 out = tf.contrib.layers.conv2d(conv,
                                                num_outputs=output_size,
                                                kernel_size=[3, 3],
@@ -73,55 +50,53 @@ def residual_block(inputs, output_size, survival_rate,
                                                activation_fn=None,
                                                normalizer_fn=tf.contrib.layers.batch_norm,
                                                normalizer_params={'scale': True,
-                                                                  'is_training': False})
-                out *= survival_rate
-
+                                                                  'is_training': True})
                 return tf.nn.relu(out + identity)
+            else:
+                return tf.nn.relu(identity)
+        else:
+            conv = tf.contrib.layers.conv2d(inputs,
+                                            num_outputs=output_size,
+                                            kernel_size=[3, 3],
+                                            stride=stride,
+                                            padding=padding,
+                                            activation_fn=tf.nn.relu,
+                                            normalizer_fn=tf.contrib.layers.batch_norm,
+                                            normalizer_params={'scale': True,
+                                                               'is_training': False})
+            out = tf.contrib.layers.conv2d(conv,
+                                           num_outputs=output_size,
+                                           kernel_size=[3, 3],
+                                           stride=1,
+                                           padding='SAME',
+                                           activation_fn=None,
+                                           normalizer_fn=tf.contrib.layers.batch_norm,
+                                           normalizer_params={'scale': True,
+                                                              'is_training': False})
+            out *= survival_rate
+
+            return tf.nn.relu(out + identity)
 
 def transition_block(inputs, output_size, survival_rate,
-                     training, outer_scope, scope, stride=1, padding='SAME'):
+                     training, scope, stride=1, padding='SAME'):
 
     bernoulli = np.random.uniform()
     survives = bernoulli < survival_rate
 
-    with tf.name_scope(outer_scope):
-        with tf.name_scope(scope):
-            avg_pool = tf.contrib.layers.avg_pool2d(inputs,
-                                                    kernel_size=(2, 2),
-                                                    stride=2,
-                                                    padding='VALID')
-            # confirm. Anuj may be right. seems like they did zero padding instead of this.
-            identity = tf.contrib.layers.conv2d(avg_pool,
-                                                num_outputs=output_size,
-                                                kernel_size=[1, 1],
-                                                stride=1,
+    with tf.variable_scope(scope):
+        avg_pool = tf.contrib.layers.avg_pool2d(inputs,
+                                                kernel_size=(2, 2),
+                                                stride=2,
                                                 padding='VALID')
-            # confirm. which layer is used for downsampling?
-            if training:
-                if survives:
-                    conv = tf.contrib.layers.conv2d(inputs,
-                                                    num_outputs=output_size,
-                                                    kernel_size=[2, 2],
-                                                    stride=2,
-                                                    padding='VALID',
-                                                    activation_fn=tf.nn.relu,
-                                                    normalizer_fn=tf.contrib.layers.batch_norm,
-                                                    normalizer_params={'scale': True,
-                                                                       'is_training': True})
-                    out = tf.contrib.layers.conv2d(conv,
-                                                   num_outputs=output_size,
-                                                   kernel_size=[3, 3],
-                                                   stride=1,
-                                                   padding='SAME',
-                                                   activation_fn=None,
-                                                   normalizer_fn=tf.contrib.layers.batch_norm,
-                                                   normalizer_params={'scale': True,
-                                                                      'is_training': True})
-                    return tf.nn.relu(out + identity)
-                else:
-                    return tf.nn.relu(identity)
-
-            else:
+        # confirm. Anuj may be right. seems like they did zero padding instead of this.
+        identity = tf.contrib.layers.conv2d(avg_pool,
+                                            num_outputs=output_size,
+                                            kernel_size=[1, 1],
+                                            stride=1,
+                                            padding='VALID')
+        # confirm. which layer is used for downsampling?
+        if training:
+            if survives:
                 conv = tf.contrib.layers.conv2d(inputs,
                                                 num_outputs=output_size,
                                                 kernel_size=[2, 2],
@@ -130,7 +105,7 @@ def transition_block(inputs, output_size, survival_rate,
                                                 activation_fn=tf.nn.relu,
                                                 normalizer_fn=tf.contrib.layers.batch_norm,
                                                 normalizer_params={'scale': True,
-                                                                   'is_training': False})
+                                                                   'is_training': True})
                 out = tf.contrib.layers.conv2d(conv,
                                                num_outputs=output_size,
                                                kernel_size=[3, 3],
@@ -139,14 +114,37 @@ def transition_block(inputs, output_size, survival_rate,
                                                activation_fn=None,
                                                normalizer_fn=tf.contrib.layers.batch_norm,
                                                normalizer_params={'scale': True,
-                                                                  'is_training': False})
-                out *= survival_rate
-
+                                                                  'is_training': True})
                 return tf.nn.relu(out + identity)
+            else:
+                return tf.nn.relu(identity)
+
+        else:
+            conv = tf.contrib.layers.conv2d(inputs,
+                                            num_outputs=output_size,
+                                            kernel_size=[2, 2],
+                                            stride=2,
+                                            padding='VALID',
+                                            activation_fn=tf.nn.relu,
+                                            normalizer_fn=tf.contrib.layers.batch_norm,
+                                            normalizer_params={'scale': True,
+                                                               'is_training': False})
+            out = tf.contrib.layers.conv2d(conv,
+                                           num_outputs=output_size,
+                                           kernel_size=[3, 3],
+                                           stride=1,
+                                           padding='SAME',
+                                           activation_fn=None,
+                                           normalizer_fn=tf.contrib.layers.batch_norm,
+                                           normalizer_params={'scale': True,
+                                                              'is_training': False})
+            out *= survival_rate
+
+            return tf.nn.relu(out + identity)
 
 
 def output_layer(inputs, scope, output_size=10):
-    with tf.name_scope(scope):
+    with tf.variable_scope(scope):
         pooling = tf.contrib.layers.avg_pool2d(inputs,
                                                kernel_size=inputs.shape[1:3],
                                                stride=1,
