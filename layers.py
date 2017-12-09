@@ -20,6 +20,7 @@ def first_layer(inputs, training, scope):
     return out
 
 def residual_block(inputs, output_size, survival_rate,
+                   random_roll,
                    training, scope, stride=1, padding='SAME'):
     #optional downsampling when strides > 1
     # optional stride param?
@@ -48,8 +49,7 @@ def residual_block(inputs, output_size, survival_rate,
                                        normalizer_params={'scale': True,
                                                           'is_training': True})
         if training:
-            bernoulli = tf.random_uniform(shape=[], minval=0.0, maxval=1.0)
-            survives = tf.less(bernoulli, survival_rate)
+            survives = tf.less(random_roll, survival_rate)
             out = tf.cond(survives,
                           lambda: out + identity,
                           lambda: identity)
@@ -59,6 +59,7 @@ def residual_block(inputs, output_size, survival_rate,
             return tf.nn.relu(out + identity)
 
 def transition_block(inputs, output_size, survival_rate,
+                     random_roll,
                      training, scope, stride=1, padding='SAME'):
 
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
@@ -92,8 +93,7 @@ def transition_block(inputs, output_size, survival_rate,
                                        normalizer_params={'scale': True,
                                                           'is_training': True})
         if training:
-            bernoulli = tf.random_uniform(shape=[], minval=0.0, maxval=1.0)
-            survives = tf.less(bernoulli, survival_rate)
+            survives = tf.less(random_roll, survival_rate)
             out = tf.cond(survives,
                           lambda: out + identity,
                           lambda: identity)
