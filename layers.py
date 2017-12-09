@@ -5,6 +5,7 @@ import numpy as np
 # scale? the link below says may not be required if relu is next layer.
 # NOTE from https://www.tensorflow.org/api_docs/python/tf/contrib/layers/batch_norm?
 # implement variable probs in notebook itself.
+# W=(W−F+2P)/S+1
 def first_layer(inputs, training, scope):
     with tf.name_scope(scope):
         out = tf.contrib.layers.conv2d(inputs,
@@ -144,10 +145,14 @@ def transition_block(inputs, output_size, survival_rate,
                 return tf.nn.relu(out + identity)
 
 
-# def output_layer(input, scope, output_size=10):
-#     with tf.name_scope(scope):
-#         flatten = tf.contrib.layers.flatten(input)
-#         fc = tf.contrib.layers.fully_connected(flatten,
-#                                                output_size,
-#                                                activation_fn=tf.nn.softmax)
-#     return fc
+def output_layer(inputs, scope, output_size=10):
+    with tf.name_scope(scope):
+        pooling = tf.contrib.layers.avg_pool2d(inputs,
+                                               kernel_size=inputs.shape[1:3],
+                                               stride=1,
+                                               padding='VALID')
+        flatten = tf.contrib.layers.flatten(pooling)
+        fc = tf.contrib.layers.fully_connected(flatten,
+                                               output_size,
+                                               activation_fn=tf.nn.softmax)
+    return fc
