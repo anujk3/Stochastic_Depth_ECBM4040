@@ -7,7 +7,7 @@ import numpy as np
 # implement variable probs in notebook itself.
 # W=(W−F+2P)/S+1
 def first_layer(inputs, training, scope):
-    with tf.variable_scope(scope):
+    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         out = tf.contrib.layers.conv2d(inputs,
                                        num_outputs=16,
                                        kernel_size=(3, 3),
@@ -27,7 +27,7 @@ def residual_block(inputs, output_size, survival_rate,
     bernoulli = np.random.uniform()
     survives = bernoulli < survival_rate
 
-    with tf.variable_scope(scope):
+    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
 
         identity = inputs
 
@@ -83,7 +83,7 @@ def transition_block(inputs, output_size, survival_rate,
     bernoulli = np.random.uniform()
     survives = bernoulli < survival_rate
 
-    with tf.variable_scope(scope):
+    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         avg_pool = tf.contrib.layers.avg_pool2d(inputs,
                                                 kernel_size=(2, 2),
                                                 stride=2,
@@ -144,7 +144,7 @@ def transition_block(inputs, output_size, survival_rate,
 
 
 def output_layer(inputs, scope, output_size=10):
-    with tf.variable_scope(scope):
+    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         pooling = tf.contrib.layers.avg_pool2d(inputs,
                                                kernel_size=inputs.shape[1:3],
                                                stride=1,
