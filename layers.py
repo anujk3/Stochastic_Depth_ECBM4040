@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 
 # confirm batch norm betweren activation and input (or vice-versa?)
 # scale? the link below says may not be required if relu is next layer.
@@ -113,3 +112,36 @@ def output_layer(inputs, scope, output_size=10):
         fc = tf.contrib.layers.fully_connected(flatten,
                                                output_size)
     return fc
+
+
+def architecture(inputs, random_rolls, training, P=0.5, L=54):
+    assert isinstance(training, bool)
+    out = first_layer(inputs, training, 'input')
+    l = 1
+
+    with tf.variable_scope('stack1', reuse=tf.AUTO_REUSE):
+        for i in range(1, 19):
+            p = 1 - l/L * (1 - P)
+            out = residual_block(out, 16, p, random_rolls[l-1], training, 'res'+str(i))
+            l += 1
+
+    with tf.variable_scope('stack2', reuse=tf.AUTO_REUSE):
+        p = 1 - l/L * (1 - P)
+        out = transition_block(out, 32, p, random_rolls[l-1], training, 'res'+str(1))
+        l += 1
+
+        for i in range(2, 19):
+            p = 1 - l/L * (1 - P)
+            out = residual_block(out, 32, p, random_rolls[l-1], training, 'res'+str(i))
+            l += 1
+
+    with tf.variable_scope('stack3', reuse=tf.AUTO_REUSE):
+        p = 1 - l/L * (1 - P)
+        out = transition_block(out, 64, p, random_rolls[l-1], training, 'res'+str(1))
+        l += 1
+
+        for i in range(2, 19):
+            p = 1 - l/L * (1 - P)
+            out = residual_block(out, 64, p, random_rolls[l-1], training, 'res'+str(i))
+
+    return output_layer(out, 'out', 10)
