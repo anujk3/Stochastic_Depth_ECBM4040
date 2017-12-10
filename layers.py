@@ -20,7 +20,7 @@ def first_layer(inputs, training, scope):
 
 def residual_block(inputs, output_size, survival_rate,
                    random_roll,
-                   training, scope, stride=1, padding='SAME'):
+                   is_training, scope, stride=1, padding='SAME'):
     #optional downsampling when strides > 1
     # optional stride param?
     #padding in case of different strides?
@@ -37,7 +37,7 @@ def residual_block(inputs, output_size, survival_rate,
                                         activation_fn=tf.nn.relu,
                                         normalizer_fn=tf.contrib.layers.batch_norm,
                                         normalizer_params={'scale': True,
-                                                           'is_training': True})
+                                                           'is_training': is_training})
         out = tf.contrib.layers.conv2d(conv,
                                        num_outputs=output_size,
                                        kernel_size=[3, 3],
@@ -46,20 +46,28 @@ def residual_block(inputs, output_size, survival_rate,
                                        activation_fn=None,
                                        normalizer_fn=tf.contrib.layers.batch_norm,
                                        normalizer_params={'scale': True,
-                                                          'is_training': True})
-        if training:
+                                                          'is_training': is_training})
+
+        def training(out, identity):
             survives = tf.less(random_roll, survival_rate)
-            out = tf.cond(survives,
-                          lambda: out + identity,
-                          lambda: identity)
-            return tf.nn.relu(out)
-        else:
-            out *= survival_rate
-            return tf.nn.relu(out + identity)
+            return tf.cond(survives,
+                           lambda: out + identity,
+                           lambda: identity,
+                           name='survives_cond')
+
+        def testing(out, identity):
+            return survival_rate * out + identity
+
+        out = tf.cond(is_training,
+                      lambda: training(out, identity),
+                      lambda: testing(out, identity),
+                      name='is_trainig_cond')
+
+        return tf.nn.relu(out)
 
 def transition_block(inputs, output_size, survival_rate,
                      random_roll,
-                     training, scope, stride=1, padding='SAME'):
+                     is_training, scope, stride=1, padding='SAME'):
 
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         avg_pool = tf.contrib.layers.avg_pool2d(inputs,
@@ -81,7 +89,7 @@ def transition_block(inputs, output_size, survival_rate,
                                         activation_fn=tf.nn.relu,
                                         normalizer_fn=tf.contrib.layers.batch_norm,
                                         normalizer_params={'scale': True,
-                                                           'is_training': True})
+                                                           'is_training': is_training})
         out = tf.contrib.layers.conv2d(conv,
                                        num_outputs=output_size,
                                        kernel_size=[3, 3],
@@ -90,16 +98,24 @@ def transition_block(inputs, output_size, survival_rate,
                                        activation_fn=None,
                                        normalizer_fn=tf.contrib.layers.batch_norm,
                                        normalizer_params={'scale': True,
-                                                          'is_training': True})
-        if training:
+                                                          'is_training': is_training})
+        
+        def training(out, identity):
             survives = tf.less(random_roll, survival_rate)
-            out = tf.cond(survives,
-                          lambda: out + identity,
-                          lambda: identity)
-            return tf.nn.relu(out)
-        else:
-            out *= survival_rate
-            return tf.nn.relu(out + identity)
+            return tf.cond(survives,
+                           lambda: out + identity,
+                           lambda: identity,
+                           name='survives_cond')
+
+        def testing(out, identity):
+            return survival_rate * out + identity
+
+        out = tf.cond(is_training,
+                      lambda: training(out, identity),
+                      lambda: testing(out, identity),
+                      name='is_trainig_cond')
+
+        return tf.nn.relu(out)
 
 
 def output_layer(inputs, scope, output_size=10):
@@ -114,34 +130,33 @@ def output_layer(inputs, scope, output_size=10):
     return fc
 
 
-def architecture(inputs, random_rolls, training, P=0.5, L=54):
-    assert isinstance(training, bool)
-    out = first_layer(inputs, training, 'input')
+def architecture(inputs, random_rolls, is_training, P=0.5, L=54):
+    out = first_layer(inputs, is_training, 'input')
     l = 1
 
     with tf.variable_scope('stack1', reuse=tf.AUTO_REUSE):
         for i in range(1, 19):
             p = 1 - l/L * (1 - P)
-            out = residual_block(out, 16, p, random_rolls[l-1], training, 'res'+str(i))
+            out = residual_block(out, 16, p, random_rolls[l-1], is_training, 'res'+str(i))
             l += 1
 
     with tf.variable_scope('stack2', reuse=tf.AUTO_REUSE):
         p = 1 - l/L * (1 - P)
-        out = transition_block(out, 32, p, random_rolls[l-1], training, 'res'+str(1))
+        out = transition_block(out, 32, p, random_rolls[l-1], is_training, 'res'+str(1))
         l += 1
 
         for i in range(2, 19):
             p = 1 - l/L * (1 - P)
-            out = residual_block(out, 32, p, random_rolls[l-1], training, 'res'+str(i))
+            out = residual_block(out, 32, p, random_rolls[l-1], is_training, 'res'+str(i))
             l += 1
 
     with tf.variable_scope('stack3', reuse=tf.AUTO_REUSE):
         p = 1 - l/L * (1 - P)
-        out = transition_block(out, 64, p, random_rolls[l-1], training, 'res'+str(1))
+        out = transition_block(out, 64, p, random_rolls[l-1], is_training, 'res'+str(1))
         l += 1
 
         for i in range(2, 19):
             p = 1 - l/L * (1 - P)
-            out = residual_block(out, 64, p, random_rolls[l-1], training, 'res'+str(i))
+            out = residual_block(out, 64, p, random_rolls[l-1], is_training, 'res'+str(i))
 
     return output_layer(out, 'out', 10)
