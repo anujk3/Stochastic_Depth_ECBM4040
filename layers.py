@@ -5,6 +5,10 @@ import tensorflow as tf
 # NOTE from https://www.tensorflow.org/api_docs/python/tf/contrib/layers/batch_norm?
 # implement variable probs in notebook itself.
 # W=(W−F+2P)/S+1
+
+#####TODO############
+# make train test global conditions instead of a switch in each layer.
+
 def first_layer(inputs, training, scope):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         out = tf.contrib.layers.conv2d(inputs,
