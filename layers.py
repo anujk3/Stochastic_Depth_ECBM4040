@@ -164,3 +164,10 @@ def architecture(inputs, random_rolls, is_training, P=0.5, L=54):
             out = residual_block(out, 64, p, random_rolls[l-1], is_training, 'res'+str(i))
 
     return output_layer(out, 'out', 10)
+
+def evaluate(output, input_y):
+    with tf.name_scope('evaluate'):
+        pred = tf.argmax(output, axis=1)
+        error_num = tf.count_nonzero(pred - input_y, name='error_num')
+        tf.summary.scalar('Stoch_error', error_num)
+    return error_num
