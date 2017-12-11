@@ -1,17 +1,16 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
-import sys
 import tensorflow as tf
 import numpy as np
 from layers import architecture, evaluate
 from utils.cifar_utils import load_data
 
 
-# In[ ]:
+# In[2]:
 
 
 # Load the raw CIFAR-10 data.
@@ -30,13 +29,21 @@ y_val = y_train[-num_validation:]
 X_train = X_train[:num_training, :]
 y_train = y_train[:num_training]
 
-# Preprocessing: subtract the mean value across every dimension for training data, and reshape it to be RGB size
-mean_image = np.mean(X_train, axis=0)
-std_image = np.std(X_train, axis=0)
 
-X_train = (X_train.astype(np.float32) - mean_image.astype(np.float32)) / std_image
-X_val = (X_val.astype(np.float32) - mean_image) / std_image
-X_test = (X_test.astype(np.float32) - mean_image) / std_image
+# In[3]:
+
+
+# # Preprocessing: subtract the mean value across every dimension for training data, and reshape it to be RGB size
+# mean_image = np.mean(X_train, axis=0)
+# std_image = np.std(X_train, axis=0)
+
+# X_train = (X_train.astype(np.float32) - mean_image.astype(np.float32)) / std_image
+# X_val = (X_val.astype(np.float32) - mean_image) / std_image
+# X_test = (X_test.astype(np.float32) - mean_image) / std_image
+
+
+# In[4]:
+
 
 X_train = X_train.reshape([X_train.shape[0],3,32,32]).transpose((0,2,3,1))
 X_val = X_val.reshape([X_val.shape[0],3,32,32]).transpose((0,2,3,1))
@@ -52,8 +59,11 @@ print('Test labels shape', y_test.shape)
 
 # # Use ADAM?
 # # Use better initializations?
+# # change batch_size
+# # add model saver/checkpointer
+# # change optimizer
 
-# In[ ]:
+# In[19]:
 
 
 inputs = tf.placeholder(dtype=tf.float32, shape=[None, 32, 32, 3])
@@ -64,18 +74,19 @@ is_training = tf.placeholder(dtype=tf.bool)
 lr = 0.1
 weight_decay = 1e-4
 momentum = 0.9
-batch_size = int(sys.argv[1]) or 128
+batch_size = 64
 train_size = 45000
 epochs = 500
 
-with tf.variable_scope('stoch_depth'):
-    out = architecture(inputs, random_rolls, is_training)
+out = architecture(inputs, random_rolls, is_training)
 labels = tf.one_hot(y_inputs, 10)
 softmax_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out, labels=labels))
+# confirm this is right
 regularizer_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables('stoch_depth')
                                             if 'weights' in var.name])
 loss = softmax_loss + regularizer_loss
-step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss)
+# step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss)
+step = tf.train.AdamOptimizer(lr).minimize(loss)
 eve = evaluate(out, y_val)
 
 
@@ -120,12 +131,12 @@ with tf.Session() as sess:
                                                             is_training: True})
             if iter_number % 100 == 0:
                 val, merge_result = sess.run([eve, merge], feed_dict={inputs: X_val,
-                                                   random_rolls: random_rolls_batch,
-                                                   is_training: False}) # random_rolls is irrelevant
-                val = 100 - val * 100 / y_val.shape[0]
+                                                                      random_rolls: random_rolls_batch,
+                                                                      is_training: False}) # random_rolls is irrelevant
+                val = val * 100 / y_val.shape[0]
                     
                 print('###########')
-                print("epoch number {}, train loss {}, validation error {}".format(epoch, loss_val, val))
+                print("epoch number {}, train loss {}, validation error {}".format(epoch + 1, loss_val, val))
                 print("###########")
                 
                 # save the merge result summary
