@@ -19,7 +19,8 @@ def first_layer(inputs, training, scope):
                                        activation_fn=tf.nn.relu,
                                        normalizer_fn=tf.contrib.layers.batch_norm,
                                        normalizer_params={'scale': True,
-                                                          'is_training': training})
+                                                          'is_training': training,
+                                                          'updates_collections': None})
     return out
 
 def residual_block(inputs, output_size, survival_rate,
@@ -41,7 +42,8 @@ def residual_block(inputs, output_size, survival_rate,
                                         activation_fn=tf.nn.relu,
                                         normalizer_fn=tf.contrib.layers.batch_norm,
                                         normalizer_params={'scale': True,
-                                                           'is_training': is_training})
+                                                           'is_training': is_training,
+                                                           'updates_collections': None})
         out = tf.contrib.layers.conv2d(conv,
                                        num_outputs=output_size,
                                        kernel_size=[3, 3],
@@ -50,7 +52,8 @@ def residual_block(inputs, output_size, survival_rate,
                                        activation_fn=None,
                                        normalizer_fn=tf.contrib.layers.batch_norm,
                                        normalizer_params={'scale': True,
-                                                          'is_training': is_training})
+                                                          'is_training': is_training,
+                                                          'updates_collections': None})
 
         def training(out, identity):
             survives = tf.less(random_roll, survival_rate)
@@ -93,7 +96,8 @@ def transition_block(inputs, output_size, survival_rate,
                                         activation_fn=tf.nn.relu,
                                         normalizer_fn=tf.contrib.layers.batch_norm,
                                         normalizer_params={'scale': True,
-                                                           'is_training': is_training})
+                                                           'is_training': is_training,
+                                                           'updates_collections': None})
         out = tf.contrib.layers.conv2d(conv,
                                        num_outputs=output_size,
                                        kernel_size=[3, 3],
@@ -102,7 +106,8 @@ def transition_block(inputs, output_size, survival_rate,
                                        activation_fn=None,
                                        normalizer_fn=tf.contrib.layers.batch_norm,
                                        normalizer_params={'scale': True,
-                                                          'is_training': is_training})
+                                                          'is_training': is_training,
+                                                          'updates_collections': None})
         
         def training(out, identity):
             survives = tf.less(random_roll, survival_rate)

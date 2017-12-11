@@ -1,16 +1,17 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
+import sys
 import tensorflow as tf
 import numpy as np
 from layers import architecture, evaluate
 from utils.cifar_utils import load_data
 
 
-# In[3]:
+# In[ ]:
 
 
 # Load the raw CIFAR-10 data.
@@ -52,7 +53,7 @@ print('Test labels shape', y_test.shape)
 # # Use ADAM?
 # # Use better initializations?
 
-# In[4]:
+# In[ ]:
 
 
 inputs = tf.placeholder(dtype=tf.float32, shape=[None, 32, 32, 3])
@@ -63,7 +64,7 @@ is_training = tf.placeholder(dtype=tf.bool)
 lr = 0.1
 weight_decay = 1e-4
 momentum = 0.9
-batch_size = 128
+batch_size = int(sys.argv[1]) or 128
 train_size = 45000
 epochs = 500
 
@@ -78,14 +79,14 @@ step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss
 eve = evaluate(out, y_val)
 
 
-# In[ ]:
+# In[2]:
 
 
 with tf.Session() as sess: 
     
     merge = tf.summary.merge_all()
     writer = tf.summary.FileWriter("logs", sess.graph)
-    saver = tf.train.Saver()
+#     saver = tf.train.Saver()
     sess.run(tf.global_variables_initializer())
     
     start_index = 0
@@ -129,6 +130,9 @@ with tf.Session() as sess:
                 
                 # save the merge result summary
                 writer.add_summary(merge_result, iter_number)
+#             if epoch % 5 == 0:
+#                 save_path = saver.save(sess, 'checkpoints/model.ckpt')
+#                  print("Model saved in file: %s" % save_path)
             
     writer.close()
 
