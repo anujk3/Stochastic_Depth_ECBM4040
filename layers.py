@@ -179,5 +179,4 @@ def evaluate(output, input_y):
     with tf.name_scope('evaluate'):
         pred = tf.argmax(output, axis=1)
         error_num = tf.count_nonzero(pred - input_y, name='error_num')
-        tf.summary.scalar('Stoch_error', error_num)
     return error_num

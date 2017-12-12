@@ -83,9 +83,19 @@ softmax_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out
 regularizer_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables('stoch_depth')
                                             if 'weights' in var.name])
 loss = softmax_loss + regularizer_loss
+training_summary = tf.summary.scalar('train_loss', loss)
 step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss)
 # step = tf.train.AdamOptimizer(lr).minimize(loss)
 eve = evaluate(out, y_val)
+validation_summary = tf.summary.scalar('Stoch_error', 100 * eve / len(y_val))
+
+
+# In[ ]:
+
+
+from datetime import datetime
+now = datetime.now()
+logdir = "tf_logs/" + now.strftime("%Y%m%d-%H%M%S") + "/"
 
 
 # In[2]:
@@ -94,8 +104,8 @@ eve = evaluate(out, y_val)
 best_val = np.inf
 with tf.Session() as sess: 
     
-    merge = tf.summary.merge_all()
-    writer = tf.summary.FileWriter("logs", sess.graph)
+#     merge = tf.summary.merge_all()
+    writer = tf.summary.FileWriter(logdir, sess.graph)
     saver = tf.train.Saver()
     sess.run(tf.global_variables_initializer())
     
@@ -124,14 +134,16 @@ with tf.Session() as sess:
                 X_train_batch = np.flip(X_train_batch, axis=2)
 
             random_rolls_batch = np.random.uniform(size=54)
-            _, loss_val = sess.run([step, loss], feed_dict={inputs: X_train_batch,
-                                                            random_rolls: random_rolls_batch,
-                                                            y_inputs: y_train_batch,
-                                                            is_training: True})
+            _, loss_val, train_summ = sess.run([step, loss, training_summary], feed_dict={inputs: X_train_batch,
+                                                                                          random_rolls: random_rolls_batch,
+                                                                                          y_inputs: y_train_batch,
+                                                                                          is_training: True})
+            writer.add_summary(train_summ, iter_number)
+
             if iter_number % 100 == 0:
-                val, merge_result = sess.run([eve, merge], feed_dict={inputs: X_val,
-                                                              random_rolls: random_rolls_batch,
-                                                              is_training: False}) # random_rolls is irrelevant
+                val, val_summ = sess.run([eve, validation_summary], feed_dict={inputs: X_val,
+                                                                               random_rolls: random_rolls_batch,
+                                                                               is_training: False}) # random_rolls is irrelevant
                 val = val * 100 / y_val.shape[0]
                     
                 print('###########')
@@ -139,7 +151,7 @@ with tf.Session() as sess:
                 print("###########")
         
                 # save the merge result summary
-                writer.add_summary(merge_result, iter_number)
+                writer.add_summary(val_summ, iter_number)
         if epoch % 10 == 0:
             save_path = saver.save(sess, 'checkpoints/model.ckpt')
             print("Model saved in file: %s" % save_path)
