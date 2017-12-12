@@ -57,11 +57,9 @@ print('Test data shape', X_test.shape)
 print('Test labels shape', y_test.shape)
 
 
-# # Use ADAM?
-# # Use better initializations?
-# # change batch_size
-# # add model saver/checkpointer
-# # change optimizer
+# # change ADAM?
+# # Use better initializations for batch_norm?
+# # add model saver/checkpointer. In addition keep track of best validation error and save that model
 
 # In[19]:
 
@@ -74,7 +72,7 @@ is_training = tf.placeholder(dtype=tf.bool)
 lr = 0.1
 weight_decay = 1e-4
 momentum = 0.9
-batch_size = 64
+batch_size = 128
 train_size = 45000
 epochs = 500
 
@@ -85,19 +83,20 @@ softmax_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out
 regularizer_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables('stoch_depth')
                                             if 'weights' in var.name])
 loss = softmax_loss + regularizer_loss
-# step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss)
-step = tf.train.AdamOptimizer(lr).minimize(loss)
+step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss)
+# step = tf.train.AdamOptimizer(lr).minimize(loss)
 eve = evaluate(out, y_val)
 
 
 # In[2]:
 
 
+best_val = np.inf
 with tf.Session() as sess: 
     
     merge = tf.summary.merge_all()
     writer = tf.summary.FileWriter("logs", sess.graph)
-#     saver = tf.train.Saver()
+    saver = tf.train.Saver()
     sess.run(tf.global_variables_initializer())
     
     start_index = 0
@@ -131,19 +130,23 @@ with tf.Session() as sess:
                                                             is_training: True})
             if iter_number % 100 == 0:
                 val, merge_result = sess.run([eve, merge], feed_dict={inputs: X_val,
-                                                                      random_rolls: random_rolls_batch,
-                                                                      is_training: False}) # random_rolls is irrelevant
+                                                              random_rolls: random_rolls_batch,
+                                                              is_training: False}) # random_rolls is irrelevant
                 val = val * 100 / y_val.shape[0]
                     
                 print('###########')
                 print("epoch number {}, train loss {}, validation error {}".format(epoch + 1, loss_val, val))
                 print("###########")
-                
+        
                 # save the merge result summary
                 writer.add_summary(merge_result, iter_number)
-#             if epoch % 5 == 0:
-#                 save_path = saver.save(sess, 'checkpoints/model.ckpt')
-#                  print("Model saved in file: %s" % save_path)
+        if epoch % 10 == 0:
+            save_path = saver.save(sess, 'checkpoints/model.ckpt')
+            print("Model saved in file: %s" % save_path)
+        if val < best_val:
+            best_val = val
+            save_path = saver.save(sess, 'checkpoints/best_validation.ckpt')
+            print("Best validation model saved in file: %s" % save_path)
             
     writer.close()
 

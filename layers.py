@@ -4,6 +4,7 @@ import tensorflow as tf
 
 #####TODO############
 # make train test global conditions instead of a switch in each layer.
+#most likely no need to cast is_training
 
 
 def first_layer(inputs, is_training, scope):
