@@ -21,6 +21,7 @@ def first_layer(inputs, is_training, scope):
     return out
 
 
+
 def residual_block(inputs, output_size, survival_rate, random_roll,
                    is_training, scope, stride=1, padding='SAME'):
     # optional downsampling when strides > 1
@@ -31,43 +32,42 @@ def residual_block(inputs, output_size, survival_rate, random_roll,
 
         identity = inputs
 
-        conv = tf.contrib.layers.conv2d(inputs,
-                                        num_outputs=output_size,
-                                        kernel_size=[3, 3],
-                                        stride=stride,
-                                        padding=padding,
-                                        activation_fn=tf.nn.relu,
-                                        normalizer_fn=tf.contrib.layers.batch_norm,
-                                        normalizer_params={'updates_collections': None,
-                                                           'is_training': is_training})
+        survives = tf.less(random_roll, survival_rate)
 
-        # try changing initializer for gamma in batch_norm for this layer
-        conv = tf.contrib.layers.conv2d(conv,
-                                        num_outputs=output_size,
-                                        kernel_size=[3, 3],
-                                        stride=1,
-                                        padding='SAME',
-                                        activation_fn=None,
-                                        normalizer_fn=tf.contrib.layers.batch_norm,
-                                        normalizer_params={'scale': True,
-                                                           'is_training': is_training,
-                                                           'updates_collections': None})
+        def conv_block(inputs, output_size, first_kernel_size, first_stride,
+                       first_padding, is_training):
+            conv = tf.contrib.layers.conv2d(inputs,
+                                            num_outputs=output_size,
+                                            kernel_size=first_kernel_size,
+                                            stride=first_stride,
+                                            padding=first_padding,
+                                            activation_fn=tf.nn.relu,
+                                            normalizer_fn=tf.contrib.layers.batch_norm,
+                                            normalizer_params={'updates_collections': None,
+                                                               'is_training': is_training})
 
-        def training(conv):
-            survives = tf.less(random_roll, survival_rate)
-            conv = tf.cond(survives,
-                           lambda: conv,
-                           lambda: tf.zeros_like(conv),
-                           name='survives_cond')
+            # try changing initializer for gamma in batch_norm for this layer
+            conv = tf.contrib.layers.conv2d(conv,
+                                            num_outputs=output_size,
+                                            kernel_size=(3, 3),
+                                            stride=1,
+                                            padding="SAME",
+                                            activation_fn=None,
+                                            normalizer_fn=tf.contrib.layers.batch_norm,
+                                            normalizer_params={'scale': True,
+                                                               'is_training': is_training,
+                                                               'updates_collections': None})
             return conv
 
-        def testing(conv):
-            return survival_rate * conv
-
-        conv = tf.cond(tf.cast(is_training, tf.bool),
-                       lambda: training(conv),
-                       lambda: testing(conv),
-                       name='is_trainig_cond')
+        conv = tf.cond(tf.logical_and(is_training, tf.logical_not(survives)),
+                       lambda: tf.zeros_like(identity),
+                       lambda: conv_block(inputs, output_size, (3, 3), 1, "SAME",
+                                          is_training),
+                       name='first_cond')
+        conv = tf.cond(is_training,
+                       lambda: conv,
+                       lambda: survival_rate * conv,
+                       name='second_cond')
 
         return tf.nn.relu(conv + identity)
 
@@ -87,40 +87,44 @@ def transition_block(inputs, output_size, survival_rate, random_roll,
                                             stride=1,
                                             padding='VALID')
 
-        conv = tf.contrib.layers.conv2d(inputs,
-                                        num_outputs=output_size,
-                                        kernel_size=[2, 2],
-                                        stride=2,
-                                        padding='VALID',
-                                        activation_fn=tf.nn.relu,
-                                        normalizer_fn=tf.contrib.layers.batch_norm,
-                                        normalizer_params={'is_training': is_training,
-                                                           'updates_collections': None})
-        conv = tf.contrib.layers.conv2d(conv,
-                                        num_outputs=output_size,
-                                        kernel_size=[3, 3],
-                                        stride=1,
-                                        padding='SAME',
-                                        activation_fn=None,
-                                        normalizer_fn=tf.contrib.layers.batch_norm,
-                                        normalizer_params={'scale': True,
-                                                          'is_training': is_training,
-                                                          'updates_collections': None})
+        survives = tf.less(random_roll, survival_rate)
 
-        def training(conv):
-            survives = tf.less(random_roll, survival_rate)
-            return tf.cond(survives,
-                           lambda: conv,
-                           lambda: tf.zeros_like(conv),
-                           name='survives_cond')
+        def conv_block(inputs, output_size, first_kernel_size, first_stride,
+                       first_padding, is_training):
+            conv = tf.contrib.layers.conv2d(inputs,
+                                            num_outputs=output_size,
+                                            kernel_size=first_kernel_size,
+                                            stride=first_stride,
+                                            padding=first_padding,
+                                            activation_fn=tf.nn.relu,
+                                            normalizer_fn=tf.contrib.layers.batch_norm,
+                                            normalizer_params={'updates_collections': None,
+                                                               'is_training': is_training})
 
-        def testing(conv):
-            return survival_rate * conv
+            # try changing initializer for gamma in batch_norm for this layer
+            conv = tf.contrib.layers.conv2d(conv,
+                                            num_outputs=output_size,
+                                            kernel_size=(3, 3),
+                                            stride=1,
+                                            padding="SAME",
+                                            activation_fn=None,
+                                            normalizer_fn=tf.contrib.layers.batch_norm,
+                                            normalizer_params={'scale': True,
+                                                               'is_training': is_training,
+                                                               'updates_collections': None})
+            return conv
 
-        conv = tf.cond(tf.cast(is_training, tf.bool),
-                       lambda: training(conv),
-                       lambda: testing(conv),
-                       name='is_trainig_cond')
+        
+        conv = tf.cond(tf.logical_and(is_training, tf.logical_not(survives)),
+                       lambda: tf.zeros_like(identity),
+                       lambda: conv_block(inputs, output_size, (2, 2), 2, "VALID",
+                                          is_training),
+                       name='first_cond')
+
+        conv = tf.cond(is_training,
+                       lambda: conv,
+                       lambda: survival_rate * conv,
+                       name='second_cond')
 
         return tf.nn.relu(conv + identity)
 
