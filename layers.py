@@ -2,10 +2,6 @@ import tensorflow as tf
 
 # W=(W−F+2P)/S+1
 
-#####TODO############
-# make train test global conditions instead of a switch in each layer.
-#most likely no need to cast is_training
-
 
 def first_layer(inputs, is_training, scope):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
@@ -21,43 +17,40 @@ def first_layer(inputs, is_training, scope):
     return out
 
 
+def conv_block(inputs, output_size, first_kernel_size, first_stride,
+               first_padding, is_training):
+    conv = tf.contrib.layers.conv2d(inputs,
+                                    num_outputs=output_size,
+                                    kernel_size=first_kernel_size,
+                                    stride=first_stride,
+                                    padding=first_padding,
+                                    activation_fn=tf.nn.relu,
+                                    normalizer_fn=tf.contrib.layers.batch_norm,
+                                    normalizer_params={'updates_collections': None,
+                                                       'is_training': is_training})
+
+    # try changing initializer for gamma in batch_norm for this layer
+    conv = tf.contrib.layers.conv2d(conv,
+                                    num_outputs=output_size,
+                                    kernel_size=(3, 3),
+                                    stride=1,
+                                    padding="SAME",
+                                    activation_fn=None,
+                                    normalizer_fn=tf.contrib.layers.batch_norm,
+                                    normalizer_params={'scale': True,
+                                                       'is_training': is_training,
+                                                       'updates_collections': None})
+    return conv
+
 
 def residual_block(inputs, output_size, survival_rate, random_roll,
-                   is_training, scope, stride=1, padding='SAME'):
-    # optional downsampling when strides > 1
-    # optional stride param?
-    # padding in case of different strides?
+                   is_training, scope):
 
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
 
         identity = inputs
 
         survives = tf.less(random_roll, survival_rate)
-
-        def conv_block(inputs, output_size, first_kernel_size, first_stride,
-                       first_padding, is_training):
-            conv = tf.contrib.layers.conv2d(inputs,
-                                            num_outputs=output_size,
-                                            kernel_size=first_kernel_size,
-                                            stride=first_stride,
-                                            padding=first_padding,
-                                            activation_fn=tf.nn.relu,
-                                            normalizer_fn=tf.contrib.layers.batch_norm,
-                                            normalizer_params={'updates_collections': None,
-                                                               'is_training': is_training})
-
-            # try changing initializer for gamma in batch_norm for this layer
-            conv = tf.contrib.layers.conv2d(conv,
-                                            num_outputs=output_size,
-                                            kernel_size=(3, 3),
-                                            stride=1,
-                                            padding="SAME",
-                                            activation_fn=None,
-                                            normalizer_fn=tf.contrib.layers.batch_norm,
-                                            normalizer_params={'scale': True,
-                                                               'is_training': is_training,
-                                                               'updates_collections': None})
-            return conv
 
         conv = tf.cond(tf.logical_and(is_training, tf.logical_not(survives)),
                        lambda: tf.zeros_like(identity),
@@ -73,7 +66,7 @@ def residual_block(inputs, output_size, survival_rate, random_roll,
 
 
 def transition_block(inputs, output_size, survival_rate, random_roll,
-                     is_training, scope, stride=1, padding='SAME'):
+                     is_training, scope):
 
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         identity = tf.contrib.layers.avg_pool2d(inputs,
@@ -89,32 +82,6 @@ def transition_block(inputs, output_size, survival_rate, random_roll,
 
         survives = tf.less(random_roll, survival_rate)
 
-        def conv_block(inputs, output_size, first_kernel_size, first_stride,
-                       first_padding, is_training):
-            conv = tf.contrib.layers.conv2d(inputs,
-                                            num_outputs=output_size,
-                                            kernel_size=first_kernel_size,
-                                            stride=first_stride,
-                                            padding=first_padding,
-                                            activation_fn=tf.nn.relu,
-                                            normalizer_fn=tf.contrib.layers.batch_norm,
-                                            normalizer_params={'updates_collections': None,
-                                                               'is_training': is_training})
-
-            # try changing initializer for gamma in batch_norm for this layer
-            conv = tf.contrib.layers.conv2d(conv,
-                                            num_outputs=output_size,
-                                            kernel_size=(3, 3),
-                                            stride=1,
-                                            padding="SAME",
-                                            activation_fn=None,
-                                            normalizer_fn=tf.contrib.layers.batch_norm,
-                                            normalizer_params={'scale': True,
-                                                               'is_training': is_training,
-                                                               'updates_collections': None})
-            return conv
-
-        
         conv = tf.cond(tf.logical_and(is_training, tf.logical_not(survives)),
                        lambda: tf.zeros_like(identity),
                        lambda: conv_block(inputs, output_size, (2, 2), 2, "VALID",

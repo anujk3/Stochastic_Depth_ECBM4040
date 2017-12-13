@@ -61,7 +61,7 @@ print('Test labels shape', y_test.shape)
 # # Use better initializations for batch_norm?
 # # add model saver/checkpointer. In addition keep track of best validation error and save that model
 
-# In[19]:
+# In[5]:
 
 
 inputs = tf.placeholder(dtype=tf.float32, shape=[None, 32, 32, 3])
@@ -98,7 +98,7 @@ now = datetime.now()
 logdir = "tf_logs/" + now.strftime("%Y%m%d-%H%M%S") + "/"
 
 
-# In[2]:
+# In[ ]:
 
 
 best_val = np.inf
