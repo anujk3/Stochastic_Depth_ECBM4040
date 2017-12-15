@@ -66,7 +66,7 @@ def residual_block(inputs, output_size, survival_rate, random_roll,
 
 
 def transition_block(inputs, output_size, survival_rate, random_roll,
-                     is_training, scope):
+                     is_training, scope, strategy='conv'):
 
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         identity = tf.contrib.layers.avg_pool2d(inputs,
@@ -74,11 +74,20 @@ def transition_block(inputs, output_size, survival_rate, random_roll,
                                                 stride=2,
                                                 padding='VALID')
         # confirm. Anuj may be right. seems like they did zero padding instead of this.
-        identity = tf.contrib.layers.conv2d(identity,
-                                            num_outputs=output_size,
-                                            kernel_size=[1, 1],
-                                            stride=1,
-                                            padding='VALID')
+        if strategy == 'conv':
+            identity = tf.contrib.layers.conv2d(identity,
+                                                num_outputs=output_size,
+                                                kernel_size=[1, 1],
+                                                stride=1,
+                                                padding='VALID')
+        elif strategy == 'pad':
+            padding_size = (output_size - int(inputs.shape[-1])) // 2
+            paddings = tf.constant([[0, 0],
+                                    [0, 0],
+                                    [0, 0],
+                                    [padding_size, padding_size]])
+            identity = tf.pad(identity,
+                              paddings)
 
         survives = tf.less(random_roll, survival_rate)
 
@@ -110,7 +119,7 @@ def output_layer(inputs, scope, output_size=10):
     return out
 
 
-def architecture(inputs, random_rolls, is_training, P=0.5, L=54):
+def architecture(inputs, random_rolls, is_training, strategy, P=0.5, L=54):
     with tf.variable_scope('stoch_depth', reuse=tf.AUTO_REUSE):
 
         out = first_layer(inputs, is_training, 'input')
@@ -124,7 +133,7 @@ def architecture(inputs, random_rolls, is_training, P=0.5, L=54):
 
         with tf.variable_scope('stack2', reuse=tf.AUTO_REUSE):
             p = 1 - l / L * (1 - P)
-            out = transition_block(out, 32, p, random_rolls[l-1], is_training, 'res'+str(1))
+            out = transition_block(out, 32, p, random_rolls[l-1], is_training, 'res'+str(1), strategy)
             l += 1
 
             for i in range(2, 19):
@@ -134,7 +143,7 @@ def architecture(inputs, random_rolls, is_training, P=0.5, L=54):
 
         with tf.variable_scope('stack3', reuse=tf.AUTO_REUSE):
             p = 1 - l / L * (1 - P)
-            out = transition_block(out, 64, p, random_rolls[l-1], is_training, 'res'+str(1))
+            out = transition_block(out, 64, p, random_rolls[l-1], is_training, 'res'+str(1), strategy)
             l += 1
 
             for i in range(2, 19):
@@ -148,6 +157,7 @@ def architecture(inputs, random_rolls, is_training, P=0.5, L=54):
 
 def evaluate(output, input_y):
     with tf.name_scope('evaluate'):
+        output = tf.nn.softmax(output)
         pred = tf.argmax(output, axis=1)
         error_num = tf.count_nonzero(pred - input_y, name='error_num')
     return error_num
