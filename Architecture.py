@@ -8,14 +8,26 @@ import tensorflow as tf
 import numpy as np
 from layers import architecture, evaluate
 from utils.cifar_utils import load_data
+import time
 
 
 # In[2]:
 
 
+start_time = time.time()
+
+
+# In[69]:
+
+
 # Load the raw CIFAR-10 data.
 X_train, y_train = load_data(mode='train')
 X_test, y_test = load_data(mode='test')
+
+# shuffle_indices = np.arange(45000)
+# np.random.shuffle(shuffle_indices,)
+# X_train = X_train[shuffle_indices]
+# y_train = y_train[shuffle_indices]
 
 # Data organizations:
 # Train data: 49000 samples from original train set: 1~49000
@@ -30,19 +42,32 @@ X_train = X_train[:num_training, :]
 y_train = y_train[:num_training]
 
 
-# In[3]:
+# In[70]:
 
 
-# # Preprocessing: subtract the mean value across every dimension for training data, and reshape it to be RGB size
-# mean_image = np.mean(X_train, axis=0)
-# std_image = np.std(X_train, axis=0)
-
-# X_train = (X_train.astype(np.float32) - mean_image.astype(np.float32)) / std_image
-# X_val = (X_val.astype(np.float32) - mean_image) / std_image
-# X_test = (X_test.astype(np.float32) - mean_image) / std_image
+# print('y_val counts: ', np.bincount(y_val))
 
 
 # In[4]:
+
+
+# X_train = X_train[:256]
+# y_train = y_train[:256]
+
+
+# In[6]:
+
+
+# Preprocessing: subtract the mean value across every dimension for training data, and reshape it to be RGB size
+mean_image = np.mean(X_train, axis=0)
+std_image = np.std(X_train, axis=0)
+
+X_train = (X_train.astype(np.float32) - mean_image.astype(np.float32)) / std_image
+X_val = (X_val.astype(np.float32) - mean_image) / std_image
+X_test = (X_test.astype(np.float32) - mean_image) / std_image
+
+
+# In[13]:
 
 
 X_train = X_train.reshape([X_train.shape[0],3,32,32]).transpose((0,2,3,1))
@@ -61,7 +86,7 @@ print('Test labels shape', y_test.shape)
 # # Use better initializations for batch_norm?
 # # add model saver/checkpointer. In addition keep track of best validation error and save that model
 
-# In[5]:
+# In[7]:
 
 
 inputs = tf.placeholder(dtype=tf.float32, shape=[None, 32, 32, 3])
@@ -73,10 +98,10 @@ lr = 0.1
 weight_decay = 1e-4
 momentum = 0.9
 batch_size = 128
-train_size = 45000
+train_size = len(X_train)
 epochs = 500
 
-out = architecture(inputs, random_rolls, is_training)
+out = architecture(inputs, random_rolls, is_training, strategy='pad')
 labels = tf.one_hot(y_inputs, 10)
 softmax_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out, labels=labels))
 # confirm this is right
@@ -90,12 +115,14 @@ eve = evaluate(out, y_val)
 validation_summary = tf.summary.scalar('Stoch_error', 100 * eve / len(y_val))
 
 
-# In[ ]:
+# In[8]:
 
 
 from datetime import datetime
 now = datetime.now()
-logdir = "tf_logs/" + now.strftime("%Y%m%d-%H%M%S") + "/"
+datetime_str = now.strftime("%Y%m%d-%H%M%S")
+# datetime_str = "20171214-060557"
+logdir = "tf_logs/{}/".format(datetime_str)
 
 
 # In[ ]:
@@ -108,10 +135,13 @@ with tf.Session() as sess:
     writer = tf.summary.FileWriter(logdir, sess.graph)
     saver = tf.train.Saver()
     sess.run(tf.global_variables_initializer())
-    
+#     saver.restore(sess, "checkpoints/{}/best_validation.ckpt".format(datetime_str))
     start_index = 0
+#     iter_number = 30340
     iter_number = -1
+#     for epoch in range(87, epochs):
     for epoch in range(epochs):
+        epoch_start_time = time.time()
         if epoch in (250, 375):
             lr /= 10
         for _ in range(train_size // batch_size):
@@ -126,12 +156,13 @@ with tf.Session() as sess:
 
             X_train_batch, y_train_batch = X_train[indices], y_train[indices]
             # data augmentation
-            x_offset = np.random.randint(-4, 4)
-            y_offset = np.random.randint(-4, 4)
-            flip_bool = np.random.uniform() > .5
-            X_train_batch = np.roll(X_train_batch, (x_offset, y_offset), axis=(1, 2))
-            if flip_bool:
-                X_train_batch = np.flip(X_train_batch, axis=2)
+            for inx in range(batch_size):
+                x_offset = np.random.randint(-4, 4)
+                y_offset = np.random.randint(-4, 4)
+                flip_bool = np.random.uniform() > .5
+                X_train_batch[inx] = np.roll(X_train_batch[inx], (x_offset, y_offset), axis=(0, 1))
+                if flip_bool:
+                    X_train_batch[inx] = np.flip(X_train_batch[inx], axis=1)
 
             random_rolls_batch = np.random.uniform(size=54)
             _, loss_val, train_summ = sess.run([step, loss, training_summary], feed_dict={inputs: X_train_batch,
@@ -153,14 +184,21 @@ with tf.Session() as sess:
                 # save the merge result summary
                 writer.add_summary(val_summ, iter_number)
         if epoch % 10 == 0:
-            save_path = saver.save(sess, 'checkpoints/model.ckpt')
+            save_path = saver.save(sess, 'checkpoints/{}/model.ckpt'.format(datetime_str))
             print("Model saved in file: %s" % save_path)
         if val < best_val:
             best_val = val
-            save_path = saver.save(sess, 'checkpoints/best_validation.ckpt')
+            save_path = saver.save(sess, 'checkpoints/{}/best_validation.ckpt'.format(datetime_str))
             print("Best validation model saved in file: %s" % save_path)
+        print("epoch_time =", epoch_start_time - time.time())
             
     writer.close()
+
+
+# In[ ]:
+
+
+print(time.time() - start_time)
 
 
 # # Tests (ignore)
@@ -183,18 +221,20 @@ with tf.Session() as sess:
 #     writer.close()
 
 
-# In[ ]:
+# In[13]:
 
 
-# # confirm training = False gives same answers
+# confirm training = False gives same answers
+# X_train_batch = X_train[:20]
 # with tf.Session() as sess:
 #     ls = []
-#     with tf.variable_scope('stoch_depth', reuse=tf.AUTO_REUSE):
-#         for i in range(3):
-#             out = architecture(inputs, False)
-#             if i == 0:
-#                 sess.run(tf.global_variables_initializer())
-#             ls.append(sess.run(out, feed_dict={inputs: X}))
+#     for i in range(3):
+#         random_rolls_batch = np.random.uniform(size=54)
+#         if i == 0:
+#             sess.run(tf.global_variables_initializer())
+#         ls.append(sess.run(out, feed_dict={inputs: X_train_batch,
+#                                            random_rolls: random_rolls_batch,
+#                                            is_training: True}))
 
 
 # In[ ]:
