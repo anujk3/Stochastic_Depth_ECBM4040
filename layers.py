@@ -13,7 +13,8 @@ def first_layer(inputs, is_training, scope):
                                        activation_fn=tf.nn.relu,
                                        normalizer_fn=tf.contrib.layers.batch_norm,
                                        normalizer_params={'updates_collections': None,
-                                                          'is_training': is_training})
+                                                          'is_training': is_training,
+                                                          'scale': True})
     return out
 
 
@@ -27,7 +28,8 @@ def conv_block(inputs, output_size, first_kernel_size, first_stride,
                                     activation_fn=tf.nn.relu,
                                     normalizer_fn=tf.contrib.layers.batch_norm,
                                     normalizer_params={'updates_collections': None,
-                                                       'is_training': is_training})
+                                                       'is_training': is_training,
+                                                       'scale': True})
 
     # try changing initializer for gamma in batch_norm for this layer
     conv = tf.contrib.layers.conv2d(conv,
