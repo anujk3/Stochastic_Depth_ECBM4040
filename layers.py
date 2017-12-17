@@ -1,12 +1,21 @@
 import tensorflow as tf
 
-# W=(W−F+2P)/S+1
+def first_layer(inputs, is_training, num_outputs=16, scope='Inputs'):
+    '''
+    Parameters
+    ----------
+    inputs: input tensor with shape "NHWC"
+    is_training: boolean tensor to indicate training/testing mode
+    num_outputs: (default: 16) output depth
+    scope: (default: "Inputs") variable scope 
 
-
-def first_layer(inputs, is_training, scope):
+    Output
+    ------
+    tensor of shape "NHWC" where C=num_outputs
+    '''
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         out = tf.contrib.layers.conv2d(inputs,
-                                       num_outputs=16,
+                                       num_outputs=num_outputs,
                                        kernel_size=(3, 3),
                                        stride=1,
                                        padding='SAME',
@@ -20,6 +29,15 @@ def first_layer(inputs, is_training, scope):
 
 def conv_block(inputs, output_size, first_kernel_size, first_stride,
                first_padding, is_training):
+    '''
+    Create block with two back to back convolution layers. This is the building
+    block for a single residual block.
+    Parameters
+    ----------
+    inputs: input tensor with shape "NHWC"
+    output_size: number of output channels
+    first_kernel_size: 
+    '''
     conv = tf.contrib.layers.conv2d(inputs,
                                     num_outputs=output_size,
                                     kernel_size=first_kernel_size,
@@ -124,7 +142,7 @@ def output_layer(inputs, scope, output_size=10):
 def architecture(inputs, random_rolls, is_training, strategy, P=0.5, L=54):
     with tf.variable_scope('stoch_depth', reuse=tf.AUTO_REUSE):
 
-        out = first_layer(inputs, is_training, 'input')
+        out = first_layer(inputs, is_training, scope='Inputs')
 
         l = 1
         with tf.variable_scope('stack1', reuse=tf.AUTO_REUSE):

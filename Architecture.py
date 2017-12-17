@@ -96,13 +96,14 @@ is_training = tf.placeholder(dtype=tf.bool)
 y_test_tf = tf.placeholder(dtype=tf.int64, shape=[None])
 test_error_tf = tf.placeholder(dtype=tf.float32, shape=())
 
-lr = 0.1
+epochs = 500
+batch_size = 128
+boundaries = [int(.5 * epochs * len(X_train) / batch_size), int(.75 * epochs * len(X_train) / batch_size)]
+values = [.1, .01, .001]
 weight_decay = 1e-4
 momentum = 0.9
-batch_size = 128
 train_size = len(X_train)
-epochs = 500
-
+shuffle_indices = np.arange(len(X_train))
 out = architecture(inputs, random_rolls, is_training, strategy='pad')
 labels = tf.one_hot(y_inputs, 10)
 softmax_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out, labels=labels))
@@ -111,7 +112,9 @@ regularizer_loss = weight_decay * tf.add_n([tf.nn.l2_loss(var) for var in tf.tra
                                             if 'weights' in var.name])
 loss = softmax_loss + regularizer_loss
 training_summary = tf.summary.scalar('train_loss', loss)
-step = tf.train.MomentumOptimizer(lr, momentum, use_nesterov=True).minimize(loss)
+global_step = tf.Variable(0, trainable=False)
+learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
+step = tf.train.MomentumOptimizer(learning_rate, momentum, use_nesterov=True).minimize(loss, global_step=global_step)
 # step = tf.train.AdamOptimizer(lr).minimize(loss)
 # eve = evaluate(out, y_val)
 # eve = evaluate(out, y_test)
@@ -154,8 +157,8 @@ with tf.Session() as sess:
 #     for epoch in range(87, epochs):
     for epoch in range(epochs):
         epoch_start_time = time.time()
-        if epoch in (250, 375):
-            lr /= 10
+        np.random.shuffle(shuffle_indices)
+        X_train, y_train = X_train[shuffle_indices], y_train[shuffle_indices]
         for _ in range(train_size // batch_size):
             iter_number += 1
             if start_index + batch_size >= train_size:
