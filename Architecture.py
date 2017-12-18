@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import tensorflow as tf
@@ -14,7 +14,7 @@ from datetime import datetime
 
 # # Data Input
 
-# In[ ]:
+# In[2]:
 
 
 # Load the raw CIFAR-10 data.
@@ -22,7 +22,7 @@ X_train, y_train = load_data(mode='train')
 X_test, y_test = load_data(mode='test')
 
 
-# In[ ]:
+# In[3]:
 
 
 # Preprocessing: subtract the mean value across every dimension for training data
@@ -33,7 +33,7 @@ X_train = (X_train.astype(np.float32) - mean_image.astype(np.float32)) / std_ima
 X_test = (X_test.astype(np.float32) - mean_image) / std_image
 
 
-# In[ ]:
+# In[4]:
 
 
 # Reshape it to be size NHWC
@@ -48,7 +48,7 @@ print('Test labels shape', y_test.shape)
 
 # # Declare tensorflow variables and architecture
 
-# In[ ]:
+# In[5]:
 
 
 X_inputs = tf.placeholder(dtype=tf.float32, shape=[None, 32, 32, 3])
@@ -58,11 +58,16 @@ is_training = tf.placeholder(dtype=tf.bool)
 y_test_tf = tf.placeholder(dtype=tf.int64, shape=[None])
 test_error_tf = tf.placeholder(dtype=tf.float32, shape=())
 
+
+# In[6]:
+
+
 train_size = len(X_train)
 test_size = len(X_test)
 epochs = 500
 batch_size = 128
-boundaries = [int(.5 * epochs * train_size / batch_size), int(.75 * epochs * len(X_train) / batch_size)]
+boundaries = [int(.5 * epochs * train_size / batch_size),
+              int(.75 * epochs * train_size / batch_size)]
 values = [.1, .01, .001]
 weight_decay = 1e-4
 momentum = 0.9
@@ -79,15 +84,18 @@ training_summary = tf.summary.scalar('train_loss', loss)
 
 global_step = tf.Variable(0, trainable=False)
 learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
-step = tf.train.MomentumOptimizer(learning_rate, momentum, use_nesterov=True).minimize(loss, global_step=global_step)
+step = tf.train.MomentumOptimizer(learning_rate,
+                                  momentum,
+                                  use_nesterov=True).minimize(loss,
+                                                              global_step=global_step)
 pred = tf.argmax(out, axis=1)
 error_num = tf.count_nonzero(pred - y_test_tf, name='error_num')
-validation_summary = tf.summary.scalar('Test_Error', test_error_tf)
+test_summary = tf.summary.scalar('Test_Error', test_error_tf)
 
 
 # # Create unique log file name
 
-# In[ ]:
+# In[7]:
 
 
 now = datetime.now()
@@ -111,34 +119,34 @@ with tf.Session() as sess:
         epoch_start_time = time.time()
         np.random.shuffle(shuffle_indices)
         X_train, y_train = X_train[shuffle_indices], y_train[shuffle_indices]
+        start_index = 0
         for _ in range(train_size // batch_size):
             iter_number += 1
-            if start_index + batch_size >= train_size:
-                diff = start_index + batch_size - train_size
-                indices = list(range(start_index, train_size)) + list(range(diff))
-                start_index = diff
-            else:
-                indices = list(range(start_index, start_index + batch_size))
-                start_index += batch_size
 
+            indices = list(range(start_index, start_index + batch_size))
+            start_index += batch_size
             X_train_batch, y_train_batch = X_train[indices], y_train[indices]
+
             # data augmentation
             for inx in range(batch_size):
                 x_offset = np.random.randint(-4, 4)
                 y_offset = np.random.randint(-4, 4)
                 flip_bool = np.random.uniform() > .5
-                X_train_batch[inx] = np.roll(X_train_batch[inx], (x_offset, y_offset), axis=(0, 1))
+                X_train_batch[inx] = np.roll(X_train_batch[inx],
+                                             (x_offset, y_offset),
+                                             axis=(0, 1))
                 if flip_bool:
                     X_train_batch[inx] = np.flip(X_train_batch[inx], axis=1)
 
             random_rolls_batch = np.random.uniform(size=54)
-            _, loss_val, train_summ = sess.run([step, loss, training_summary], feed_dict={X_inputs: X_train_batch,
-                                                                                          random_rolls: random_rolls_batch,
-                                                                                          y_inputs: y_train_batch,
-                                                                                          is_training: True})
+            _, loss_val, train_summ = sess.run([step, loss, training_summary],
+                                               feed_dict={X_inputs: X_train_batch,
+                                                          random_rolls: random_rolls_batch,
+                                                          y_inputs: y_train_batch,
+                                                          is_training: True})
         writer.add_summary(train_summ, epoch)
         start_index_test = 0
-        val_list = []
+        scores_list = []
         for _ in range(test_size // 100):
             indices_test = list(range(start_index_test, start_index_test + 100))
             start_index_test += 100
@@ -149,10 +157,10 @@ with tf.Session() as sess:
                                                                  random_rolls: random_rolls_batch,
                                                                  y_test_tf: y_test_batch,
                                                                  is_training: False})
-            val_list.append(test_batch_accuracy)
-        test_epoch_accuracy = sum(val_list) / len(val_list)
-        val_summ = sess.run(validation_summary, feed_dict={test_error_tf: test_epoch_accuracy})
-        writer.add_summary(val_summ, epoch)
+            scores_list.append(test_batch_accuracy)
+        test_epoch_accuracy = sum(scores_list) / len(scores_list)
+        test_summ = sess.run(test_summary, feed_dict={test_error_tf: test_epoch_accuracy})
+        writer.add_summary(test_summ, epoch)
 
         if epoch % 10 == 0:
             save_path = saver.save(sess, 'checkpoints/{}/model.ckpt'.format(datetime_str))
