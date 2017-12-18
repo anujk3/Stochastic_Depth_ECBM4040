@@ -226,7 +226,8 @@ def architecture(inputs, random_rolls, is_training, strategy, P=0.5, L=54,
     strategy: 'pad' or 'conv'. Strategy to match dimensions of the identity function
               in the transition block. The paper uses 'pad'
     P: The probability of survival of the input layer
-    L: 
+    L: Total residual blocks in the network. Needs to be a multiple of 3 so that all 
+       stacks can have an equal number of residual blocks.
     '''
     num_stacks = 3
     assert L % num_stacks == 0
